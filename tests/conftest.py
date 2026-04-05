@@ -36,13 +36,13 @@ app.dependency_overrides[get_db] = get_db_null_pool
 
 
 @pytest.fixture(scope="function")  # can't use in session fixture
-async def db() -> AsyncGenerator[DBManager]:
+async def db() -> AsyncGenerator[DBManager, None]:
     async for db in get_db_null_pool():
         yield db
 
 
 @pytest.fixture(scope="module")  # can't use in session fixture
-async def db_module() -> AsyncGenerator[DBManager]:
+async def db_module() -> AsyncGenerator[DBManager, None]:
     async for db in get_db_null_pool():
         yield db
 

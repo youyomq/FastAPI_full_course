@@ -63,11 +63,11 @@ class BaseRepository:
             return self.mapper.map_to_domain_entity(model)
 
         except IntegrityError as ex:
-            logging.error(f"Can't add data to DB!")
+            logging.exception(f"Can't add data to DB!")
             if isinstance(ex.orig.__cause__, UniqueViolationError):
                 raise ObjAlreadyExistsException from ex
             else:
-                logging.error(f"Unknow Error!")
+                logging.exception(f"Unknow Error!")
                 raise ex
 
 
