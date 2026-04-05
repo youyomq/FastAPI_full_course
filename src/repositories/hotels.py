@@ -1,6 +1,7 @@
 from datetime import date
 from pydantic import BaseModel
 
+from src.exceptions import IncorrectPairOfDatesException
 from src.models.rooms import RoomsOrm
 from src.repositories.base import BaseRepository
 from src.models.hotels import HotelsOrm
@@ -58,7 +59,6 @@ class HotelsRepository(BaseRepository):
 
         query = select(HotelsOrm.id).filter(HotelsOrm.id.in_(hotels_ids_to_get))
 
-        print(hotels_ids_to_get)
         if location:
             query = query.filter(
                 func.lower(HotelsOrm.location).contains(location.lower())

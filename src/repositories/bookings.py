@@ -1,9 +1,9 @@
 from datetime import date
 
-from fastapi import HTTPException
 from sqlalchemy import select, insert, func
 from sqlalchemy.sql.functions import coalesce
 
+from src.exceptions import AllRoomsAreBookedException
 from src.models import RoomsOrm
 from src.models.bookings import BookingsOrm
 from src.repositories.base import BaseRepository
@@ -55,10 +55,11 @@ class BookingsRepository(BaseRepository):
 
         res_count = (await self.session.execute(res_count_query)).scalar()
 
-        print(res_count)
-
         if res_count >= 1:
-            add_stmt = insert(BookingsOrm).values(**data.model_dump())
-            await self.session.execute(add_stmt)
+            add_stmt = insert(BookingsOrm).values(**data.model_dump()).returning(BookingsOrm)
+            booking = await self.session.execute(add_stmt)
+            booking_model = booking.scalars().one()
+            return self.mapper.map_to_domain_entity(booking_model)
         else:
-            raise HTTPException(status_code=409, detail="Room Busy!")
+            raise AllRoomsAreBookedException
+

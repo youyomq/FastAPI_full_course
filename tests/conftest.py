@@ -2,6 +2,7 @@
 # ruff: noqa: F403
 
 import json
+from typing import AsyncGenerator
 from unittest import mock
 
 
@@ -35,13 +36,13 @@ app.dependency_overrides[get_db] = get_db_null_pool
 
 
 @pytest.fixture(scope="function")  # can't use in session fixture
-async def db() -> DBManager:
+async def db() -> AsyncGenerator[DBManager]:
     async for db in get_db_null_pool():
         yield db
 
 
 @pytest.fixture(scope="module")  # can't use in session fixture
-async def db_module() -> DBManager:
+async def db_module() -> AsyncGenerator[DBManager]:
     async for db in get_db_null_pool():
         yield db
 
@@ -71,7 +72,7 @@ async def add_test_data(setup_database):
 
 
 @pytest.fixture(scope="session")
-async def ac() -> AsyncClient:
+async def ac() -> AsyncGenerator:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

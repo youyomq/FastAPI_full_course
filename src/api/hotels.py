@@ -1,8 +1,11 @@
 from datetime import date
 
-from fastapi import Query, Body, Path, APIRouter
+from fastapi import Query, Body, Path, APIRouter, HTTPException
 
 from fastapi_cache.decorator import cache
+
+from src.exceptions import ObjNotFoundException, IncorrectPairOfDatesException, check_pair_of_dates_is_correct, \
+    HotelNotFoundHTTPException
 from src.schemas.hotels import HotelAdd, HotelPatch
 from src.api.dependencies import PaginationDep, DBDep
 
@@ -23,6 +26,8 @@ async def get_hotels(
     ),  # query param http://127.0.0.1:8000/hotels?id=2&title=dubai & Optional(str) for older python versions
     location: str | None = Query(None, description="Hotel Location"),
 ):
+    check_pair_of_dates_is_correct(date_from, date_to)
+
     return await db.hotels.get_filtered_by_time(
         location=location,
         title=title,
@@ -35,8 +40,10 @@ async def get_hotels(
 
 @router.get("/{hotel_id}")
 async def get_one_hotel(hotel_id: int, db: DBDep):
-    return await db.hotels.get_one_or_none(id=hotel_id)
-
+    try:
+        return await db.hotels.get_one(id=hotel_id)
+    except ObjNotFoundException:
+        raise HotelNotFoundHTTPException
 
 # request body
 @router.post("/")

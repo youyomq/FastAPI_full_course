@@ -1,6 +1,15 @@
+import logging
+
+from typing import Sequence
+
+from asyncpg import UniqueViolationError
+from sqlalchemy.exc import IntegrityError, NoResultFound
+
 from pydantic import BaseModel
 from sqlalchemy import select, insert, update, delete
+from sqlalchemy.testing.plugin.plugin_base import logging
 
+from src.exceptions import ObjNotFoundException, ObjAlreadyExistsException
 from src.repositories.mappers.base import DataMapper
 
 
@@ -33,15 +42,36 @@ class BaseRepository:
 
         return self.mapper.map_to_domain_entity(model)
 
-    async def add(self, data: BaseModel):
-        add_stmt = insert(self.model).values(**data.model_dump()).returning(self.model)
-        result = await self.session.execute(add_stmt)
+    async def get_one(self, **filter_by):
+        query = select(self.model).filter_by(**filter_by)
+        result = await self.session.execute(query)
 
-        model = result.scalars().one()
+        try:
+            model = result.scalars().one()
+        except NoResultFound:
+            raise ObjNotFoundException
+
+
 
         return self.mapper.map_to_domain_entity(model)
 
-    async def add_bulk(self, data: list[BaseModel]):
+    async def add(self, data: BaseModel):
+        try:
+            add_stmt = insert(self.model).values(**data.model_dump()).returning(self.model)
+            result = await self.session.execute(add_stmt)
+            model = result.scalars().one()
+            return self.mapper.map_to_domain_entity(model)
+
+        except IntegrityError as ex:
+            logging.error(f"Can't add data to DB!")
+            if isinstance(ex.orig.__cause__, UniqueViolationError):
+                raise ObjAlreadyExistsException from ex
+            else:
+                logging.error(f"Unknow Error!")
+                raise ex
+
+
+    async def add_bulk(self, data: Sequence[BaseModel]):
         add_stmt = insert(self.model).values([item.model_dump() for item in data])
         await self.session.execute(add_stmt)
 
@@ -53,8 +83,18 @@ class BaseRepository:
             .filter_by(**filter_by)
             .values(**data.model_dump(exclude_unset=exclude_unset))
         )  # атрибуты которые не были указаны не будут записаны в БД
-        await self.session.execute(update_stmt)
+
+
+        result = await self.session.execute(update_stmt)
+
+        if result.rowcount == 0:
+            raise ObjNotFoundException
+
 
     async def delete(self, **filter_by) -> None:
         delete_stmt = delete(self.model).filter_by(**filter_by)
-        await self.session.execute(delete_stmt)
+
+        result = await self.session.execute(delete_stmt)
+
+        if result.rowcount == 0:
+            raise ObjNotFoundException
